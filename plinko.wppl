@@ -1,0 +1,166 @@
+var dim = function() { return uniform(5, 20) }
+var staticDim = function() { return uniform(10, 50) }
+var shape = function() { return flip() ? 'circle' : 'rect' }
+//var worldWidth = 400
+//var worldHeight = 400
+var xpos = function() { return uniform(100, worldWidth - 100) }
+var ypos = function() { return uniform(100, worldHeight - 100) }
+
+var ground = {shape: 'rect',
+              static: true,
+              dims: [worldWidth, 10],
+              x: worldWidth/2,
+              y: worldHeight,
+             color: 'red'}
+
+var falling = function() {
+  return {
+    shape: shape(),
+    static: false,
+    dims: [dim(), dim()],
+    x: xpos(),
+    y: 0}
+};
+
+var fixed = function() {
+  return {
+    shape: shape(),
+    static: true,
+    dims: [staticDim(), staticDim()],
+    x: xpos(),
+    y: ypos()}
+}
+
+var ball = function(x_start) {
+  return {
+    shape: 'circle',
+    static: false,
+    dims: [10],
+    x: 50 + (x_start)*(worldWidth-100),
+    y: 0
+  }
+}
+
+var ball_simple = function() {
+  return {
+    shape: 'circle',
+    static: false,
+    dims: [10],
+    x: worldWidth*6/12,
+    y: 0
+  }
+}
+
+var pin = function(x_pos, y_pos) {
+  return {
+    shape: 'circle',
+    static: true,
+    dims: [3],
+    x: 3 + x_pos*(worldWidth-6),
+    y: 50 + y_pos
+  }
+}
+
+var divider = function(x_pos) {
+  return {
+    shape: 'rect',
+    static: true,
+    dims: [2,50],
+    x: 2 + x_pos*(worldWidth-4),
+    y: worldHeight-60
+  }
+}
+var tall_divider = function(x_pos) {
+  return {
+    shape: 'rect',
+    static: true,
+    dims: [3,worldHeight],
+    x: 3 + x_pos*(worldWidth-6),
+    y: worldHeight-60
+  }
+}
+var target = function(x_left, x_right) {
+  return {shape: 'rect',
+              static: false,
+              dims: [(worldWidth/12)*(x_right-x_left)/2, 5],
+              x: (worldWidth/12)*(x_right+x_left)/2,
+              y: worldHeight-15,
+             color: 'red'}
+}
+
+var noisify = function (world) {
+  var perturbX = function (obj) {
+    var noiseWidth = 1
+    
+    if (obj.static) {
+      return obj
+    } else {
+      return _.extend({}, obj, {x: uniform(obj.x - noiseWidth, obj.x + noiseWidth) })
+    }
+  }
+  return map(perturbX, world)
+}
+
+
+//var fallingWorld = [ground, ball_simple(), pin(0.5,0), divider(0), divider(1/12), divider(2/12), divider(3/12), divider(4/12), divider(5/12), divider(6/12), divider(7/12), divider(8/12), divider(9/12), divider(10/12), divider(11/12), divider(12/12)]
+
+var itFallingWorld = [ground, ball_simple(), pin(0.5,0), tall_divider(0), tall_divider(1)]
+
+var make_divider = function (i) {
+  return divider(i/12)
+}
+
+var twelveArray = [1,2,3,4,5,6,7,8,9,10,11]
+var elevenArray = [0,1,2,3,4,5,6,7,8,9,10,11]
+var triangle_side_length = (worldWidth-6)/12
+var triangle_height = triangle_side_length*Math.sqrt(3)/2
+
+var make_pin_12_0 = function (x) {
+  return pin(x/12, 0)
+}
+var make_pin_12_1 = function (x) {
+  return pin(x/12, 2*triangle_height)
+}
+var make_pin_12_2 = function (x) {
+  return pin(x/12, 4*triangle_height)
+}
+var make_pin_12_3 = function (x) {
+  return pin(x/12, 6*triangle_height)
+}
+var make_pin_11_0 = function (x) {
+  return pin(1/24+x/12, triangle_height)
+}
+var make_pin_11_1 = function (x) {
+  return pin(1/24+x/12, 3*triangle_height)
+}
+var make_pin_11_2 = function (x) {
+  return pin(1/24+x/12, 5*triangle_height)
+}
+
+var pins_12_0 = map(make_pin_12_0, twelveArray)
+var pins_12_1 = map(make_pin_12_1, twelveArray).concat(pins_12_0)
+var pins_12_2 = map(make_pin_12_2, twelveArray).concat(pins_12_1)
+var pins_12_3 = map(make_pin_12_3, twelveArray).concat(pins_12_2)
+var pins_11_0 = map(make_pin_11_0, elevenArray).concat(pins_12_3)
+var pins_11_1 = map(make_pin_11_1, elevenArray).concat(pins_11_0)
+var pins_11_2 = map(make_pin_11_2, elevenArray).concat(pins_11_1)
+
+var fallingWorld = itFallingWorld.concat(map( make_divider, twelveArray)).concat(pins_11_2)//.concat([target(0,7)])
+
+
+var landing_dist = Infer({method: 'forward', samples: 1}, function() { 
+  var drop_loc = physics.run(1000, noisify(fallingWorld))[94].x 
+return Math.floor(12*drop_loc/worldWidth)
+})
+var score_maker = function (n) {
+  return Math.exp(landing_dist.score(n))
+}
+map(score_maker, [0,1,2,3,4,5,6,7,8,9,10,11])
+worldWidth
+
+//viz(Infer({method: 'forward', samples: 1000},
+//           function() { return noisify(fallingWorld)[4].x }))
+
+physics.animate(1000, noisify(fallingWorld));
+
+//physics.run(1000, noisify(fallingWorld))[4]
